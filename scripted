@@ -1,0 +1,175 @@
+node {
+ 
+    // ---------- TOOLS ----------
+
+    env.JAVA_HOME = tool 'jdk-8'
+
+    env.MAVEN_HOME = tool 'Maven-3.8.7'
+
+    env.PATH = "${env.MAVEN_HOME}/bin:${env.JAVA_HOME}/bin:${env.PATH}"
+ 
+    // ---------- PARAMETERS ----------
+
+    properties([
+
+        parameters([
+
+            booleanParam(name: 'RUN_STABILITY_SCAN', defaultValue: true),
+
+            booleanParam(name: 'RUN_QUALITY_SCAN', defaultValue: true),
+
+            booleanParam(name: 'RUN_COVERAGE_SCAN', defaultValue: true)
+
+        ])
+
+    ])
+ 
+    // ---------- ENVIRONMENT ----------
+
+    def SLACK_CHANNEL = '#jenkins-family'
+
+    def EMAIL_TO = 'varshatripathi289@gmail.com'
+ 
+    try {
+ 
+        // ---------- CHECKOUT ----------
+
+        stage('Code Checkout') {
+
+            git 'https://github.com/opstree/spring3hibernate.git'
+
+        }
+ 
+        // ---------- PARALLEL ANALYSIS ----------
+
+        stage('Parallel Code Analysis') {
+
+            parallel(
+
+                "Code Stability": {
+
+                    if (params.RUN_STABILITY_SCAN) {
+
+                        stage('Code Stability') {
+
+                            echo 'Running Code Stability Scan'
+
+                            sh 'mvn clean compile || true'
+
+                        }
+
+                    } else {
+
+                        echo 'Code Stability Scan Skipped'
+
+                    }
+
+                },
+ 
+                "Code Quality Analysis": {
+
+                    if (params.RUN_QUALITY_SCAN) {
+
+                        stage('Code Quality Analysis') {
+
+                            echo 'Running Code Quality Analysis'
+
+                            sh 'mvn verify || true'
+
+                        }
+
+                    } else {
+
+                        echo 'Code Quality Scan Skipped'
+
+                    }
+
+                },
+ 
+                "Code Coverage Analysis": {
+
+                    if (params.RUN_COVERAGE_SCAN) {
+
+                        stage('Code Coverage Analysis') {
+
+                            echo 'Running Code Coverage Analysis'
+
+                            sh 'mvn test || true'
+
+                            jacoco execPattern: '**/target/jacoco.exec'
+
+                        }
+
+                    } else {
+
+                        echo 'Code Coverage Scan Skipped'
+
+                    }
+
+                }
+
+            )
+
+        }
+ 
+        // ---------- APPROVAL ----------
+
+        stage('Approval Before Publish') {
+
+            input message: 'Approve artifact publishing?', ok: 'Approve'
+
+        }
+ 
+        // ---------- PUBLISH ----------
+
+        stage('Publish Artifacts') {
+
+            echo 'Publishing Artifacts'
+
+            sh 'mvn package'
+
+            archiveArtifacts artifacts: '**/target/*.war', fingerprint: true
+
+        }
+ 
+        // ---------- SUCCESS NOTIFICATION ----------
+
+        slackSend channel: SLACK_CHANNEL,
+
+                  message: "✅ SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+ 
+        emailext(
+
+            subject: "SUCCESS: Jenkins Build ${env.JOB_NAME}",
+
+            body: "Build successful. Artifacts published.",
+
+            to: EMAIL_TO
+
+        )
+ 
+    } catch (err) {
+ 
+        // ---------- FAILURE NOTIFICATION ----------
+
+        slackSend channel: SLACK_CHANNEL,
+
+                  message: "❌ FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+ 
+        emailext(
+
+            subject: "FAILED: Jenkins Build ${env.JOB_NAME}",
+
+            body: "Build failed. Please check Jenkins logs.",
+
+            to: EMAIL_TO
+
+        )
+ 
+        throw err
+
+    }
+
+}
+
+ 
