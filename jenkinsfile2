@@ -1,13 +1,9 @@
-@Library('jenkins-ansible-shared-library') _
-
-def config = [
-    SLACK_CHANNEL_NAME  : '#jenkins-family',
-    ENVIRONMENT         : 'prod',
-    CODE_BASE_PATH      : '.',
-    ACTION_MESSAGE      : 'Production deployment completed successfully',
-    KEEP_APPROVAL_STAGE : true,
-    GIT_REPO            : 'https://github.com/varshatripathi289-svg/varsha.git',
-    PLAYBOOK_NAME       : 'deploy.yml'
-]
-
-ansiblePipeline(config)
+ansiblePipeline(
+    GIT_REPO_URL       : 'https://github.com/varshatripathi289-svg/varsha.git',
+    GIT_BRANCH        : 'main',
+    PLAYBOOK_NAME     : 'site.yml',
+    SLACK_CHANNEL_NAME: '#jenkins-family',
+    ENVIRONMENT       : 'prod',
+    ACTION_MESSAGE    : 'Prod deployment',
+    KEEP_APPROVAL_STAGE: true
+)
