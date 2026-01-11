@@ -1,0 +1,163 @@
+pipeline {
+
+    agent any
+ 
+    tools {
+
+        jdk 'jdk-8'
+
+        maven 'Maven-3.8.7'
+
+    }
+ 
+    parameters {
+
+        booleanParam(name: 'RUN_STABILITY_SCAN', defaultValue: true)
+
+        booleanParam(name: 'RUN_QUALITY_SCAN', defaultValue: true)
+
+        booleanParam(name: 'RUN_COVERAGE_SCAN', defaultValue: true)
+
+    }
+ 
+    environment {
+
+        SLACK_CHANNEL = '#jenkins-family'
+
+        EMAIL_TO = 'varshatripathi289@gmail.com'
+
+    }
+ 
+    stages {
+ 
+        stage('Code Checkout') {
+
+            steps {
+
+                git 'https://github.com/opstree/spring3hibernate.git'
+
+            }
+
+        }
+ 
+        stage('Parallel Code Analysis') {
+
+            parallel {
+ 
+                stage('Code Stability') {
+
+                    when { expression { params.RUN_STABILITY_SCAN } }
+
+                    steps {
+
+                        echo 'Running Code Stability Scan'
+
+                        sh 'mvn clean compile || true'
+
+                    }
+
+                }
+ 
+                stage('Code Quality Analysis') {
+
+                    when { expression { params.RUN_QUALITY_SCAN } }
+
+                    steps {
+
+                        echo 'Running Code Quality Analysis'
+
+                        sh 'mvn verify || true'
+
+                    }
+
+                }
+ 
+                stage('Code Coverage Analysis') {
+
+                    when { expression { params.RUN_COVERAGE_SCAN } }
+
+                    steps {
+
+                        echo 'Running Code Coverage Analysis'
+
+                        sh 'mvn test || true'
+
+                    }
+
+                    post {
+
+                        always {
+
+                            jacoco execPattern: '**/target/jacoco.exec'
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        }
+ 
+        stage('Approval Before Publish') {
+
+            steps {
+
+                input message: 'Approve artifact publishing?', ok: 'Approve'
+
+            }
+
+        }
+ 
+        stage('Publish Artifacts') {
+
+            steps {
+
+                echo 'Publishing Artifacts'
+
+                sh 'mvn package'
+
+                archiveArtifacts artifacts: '**/target/*.war', fingerprint: true
+
+            }
+
+        }
+
+    }
+ 
+    post {
+
+        success {
+
+            slackSend channel: env.SLACK_CHANNEL,
+
+                      message: "✅ SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+ 
+            emailext subject: "SUCCESS: Jenkins Build ${env.JOB_NAME}",
+
+                     body: "Build successful. Artifacts published.",
+
+                     to: env.EMAIL_TO
+
+        }
+ 
+        failure {
+
+            slackSend channel: env.SLACK_CHANNEL,
+
+                      message: "❌ FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+ 
+            emailext subject: "FAILED: Jenkins Build ${env.JOB_NAME}",
+
+                     body: "Build failed. Please check Jenkins logs.",
+
+                     to: env.EMAIL_TO
+
+        }
+
+    }
+
+}
+
+ 
