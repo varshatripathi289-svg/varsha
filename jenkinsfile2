@@ -1,2 +1,3 @@
-@Library('jenkins-ansible-shared-lib') _
+@Library('jenkins-ansible-shared-lib@main') _
+
 ansiblePipeline()
